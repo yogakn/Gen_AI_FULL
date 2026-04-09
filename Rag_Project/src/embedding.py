@@ -1,8 +1,4 @@
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
-client = OpenAI()
+from config import client
 
 def get_embeddings(texts):
     response = client.embeddings.create(

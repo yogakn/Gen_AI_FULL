@@ -1,9 +1,5 @@
 import numpy as np
-from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
-client = OpenAI()
+from config import client
 
 def get_query_embedding(query):
     res = client.embeddings.create(
