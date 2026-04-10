@@ -1,4 +1,7 @@
+import os
+os.environ["OPENAI_API_KEY"] = "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"
 from ragas import evaluate
+
 from ragas.metrics import (
     faithfulness,
     answer_relevancy,
@@ -7,25 +10,17 @@ from ragas.metrics import (
 )
 from datasets import Dataset
 
-# Sample dataset
 data = {
-    "question": [
-        "What causes diabetes?"
-    ],
-    "answer": [
-        "Diabetes is caused by insulin resistance."
-    ],
+    "question": ["What causes diabetes?"],
+    "answer": ["Diabetes is caused by insulin resistance."],
     "contexts": [[
         "Diabetes occurs when the body becomes resistant to insulin."
     ]],
-    "ground_truth": [
-        "Diabetes is caused by insulin resistance."
-    ]
+    "ground_truth": ["Diabetes is caused by insulin resistance."]
 }
 
 dataset = Dataset.from_dict(data)
 
-# Run evaluation
 result = evaluate(
     dataset,
     metrics=[
@@ -36,4 +31,11 @@ result = evaluate(
     ]
 )
 
-print(result)
+print("\n===== RAG Evaluation =====\n")
+
+scores = result.scores   # this is a LIST
+
+for item in scores:
+    for metric, value in item.items():
+        val = value if value == value else "N/A"
+        print(f"{metric.upper():<20} : {val}")
