@@ -1,63 +1,96 @@
 import streamlit as st
-from ingest import ingest
-from retrieve import retrieve
-from rerank import rerank
-from generate import generate_answer
+from retriever import retrieve
+from rag_pipeline import generate_answer
 
-# -------------------------------
-# Config
-# -------------------------------
-st.set_page_config(page_title="RAG PDF Chatbot", layout="wide")
-st.title("📄 RAG PDF Chatbot")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="🤖 RAG Chatbot",
+    page_icon="🤖",
+    layout="wide"
+)
 
-# -------------------------------
-# Cache
-# -------------------------------
-@st.cache_resource
-def load_rag():
-    index, docs = ingest("data.pdf")
-    return index, docs
+# ---------------- CUSTOM CSS ----------------
+st.markdown("""
+    <style>
+        .main {
+            background-color: #0E1117;
+        }
+        .stChatMessage {
+            border-radius: 12px;
+            padding: 10px;
+        }
+        .user-msg {
+            background-color: #1f77b4;
+            color: white;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .bot-msg {
+            background-color: #2E2E2E;
+            color: #EAEAEA;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        .title {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-with st.spinner("🔄 Loading PDF..."):
-    index, docs = load_rag()
+# ---------------- HEADER ----------------
+st.markdown('<div class="title">🤖 Smart RAG Chatbot</div>', unsafe_allow_html=True)
+st.caption("Ask anything powered by Retrieval-Augmented Generation 🚀")
 
-# -------------------------------
-# Sidebar
-# -------------------------------
-st.sidebar.header("⚙️ Settings")
-retrieve_k = st.sidebar.slider("Retrieve Top-K", 1, 20, 10)
-rerank_k = st.sidebar.slider("Rerank Top-K", 1, 10, 3)
+# ---------------- SIDEBAR ----------------
+with st.sidebar:
+    st.header("⚙️ Settings")
+    k = st.slider("Top-K Documents", 1, 10, 3)
+    
+    st.divider()
+    st.markdown("### 🧠 About")
+    st.write("""
+    This chatbot uses:
+    - Retrieval (Vector DB)
+    - LLM for Answer Generation
+    - Context-aware responses
+    """)
 
-# -------------------------------
-# Input
-# -------------------------------
-query = st.text_input("💬 Ask your question:")
+    if st.button("🧹 Clear Chat"):
+        st.session_state.messages = []
+
+# ---------------- SESSION STATE ----------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# ---------------- CHAT HISTORY ----------------
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        if msg["role"] == "user":
+            st.markdown(f'<div class="user-msg">{msg["content"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="bot-msg">{msg["content"]}</div>', unsafe_allow_html=True)
+
+# ---------------- INPUT ----------------
+query = st.chat_input("💬 Ask your question...")
 
 if query:
-    with st.spinner("🔍 Thinking..."):
+    # Store user message
+    st.session_state.messages.append({"role": "user", "content": query})
 
-        # Step 1: Retrieve
-        retrieved = retrieve(query, index, docs, k=retrieve_k)
+    with st.chat_message("user"):
+        st.markdown(f'<div class="user-msg">{query}</div>', unsafe_allow_html=True)
 
-        # Step 2: Rerank
-        reranked = rerank(query, retrieved, top_k=rerank_k)
+    # Loading spinner
+    with st.spinner("🔍 Retrieving & Generating response..."):
+        contexts = retrieve(query, k=k)
+        answer = generate_answer(query, contexts)
 
-        # Step 3: Generate (USE RERANKED ONLY)
-        answer = generate_answer(query, reranked)
+    # Show assistant response
+    with st.chat_message("assistant"):
+        st.markdown(f'<div class="bot-msg">{answer}</div>', unsafe_allow_html=True)
 
-    # Answer
-    st.subheader("🧠 Answer")
-    st.write(answer)
-
-    # Retrieved
-    with st.expander("🔍 Retrieved Chunks"):
-        for i, doc in enumerate(retrieved):
-            st.write(f"{i+1}. {doc[:300]}...")
-
-    # Reranked
-    with st.expander("⭐ Reranked Chunks"):
-        for i, doc in enumerate(reranked):
-            st.write(f"{i+1}. {doc[:300]}...")
-
-st.markdown("---")
-st.markdown("✅ FAISS + Rerank + OpenAI RAG")
+    # Store assistant message
+    st.session_state.messages.append({"role": "assistant", "content": answer})
